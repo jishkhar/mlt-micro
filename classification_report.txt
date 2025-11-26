@@ -39,6 +39,9 @@ Confusion Matrix:
 [[22  1  5]
  [ 0 29  1]
  [ 2  2 25]]
+
+Running Decision Tree Depth Analysis...
+Saved dt_accuracy_line_chart.png
 Saved decision_tree_viz.png
 Saved dt_feature_importance.png
 
@@ -51,6 +54,9 @@ Confusion Matrix:
 [[25  1  2]
  [ 0 29  1]
  [ 0  2 27]]
+
+Running Random Forest Estimator Analysis...
+Saved rf_accuracy_line_chart.png
 
 ========================================
 XGBOOST CLASSIFIER
@@ -72,5 +78,8 @@ Confusion Matrix:
  [ 0 29  1]
  [ 1  3 25]]
 Saved model_comparison.png
+
+Generating Actual vs Predicted Comparison Graph...
+Saved actual_vs_predicted_comparison.png
 
 Analysis Complete. Report saved to classification_report.txt

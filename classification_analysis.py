@@ -130,6 +130,25 @@ def train_evaluate_models(X, y, le, feature_names):
     print(confusion_matrix(y_test, y_pred_dt))
     results['Decision Tree'] = acc_dt
     
+    # --- Decision Tree Analysis: Accuracy vs Max Depth ---
+    print("\nRunning Decision Tree Depth Analysis...")
+    dt_depths = range(1, 21)
+    dt_accuracies = []
+    for depth in dt_depths:
+        dt_temp = DecisionTreeClassifier(max_depth=depth, random_state=42)
+        dt_temp.fit(X_train, y_train)
+        dt_accuracies.append(accuracy_score(y_test, dt_temp.predict(X_test)))
+        
+    plt.figure(figsize=(10, 6))
+    plt.plot(dt_depths, dt_accuracies, marker='o', linestyle='-', color='green')
+    plt.title('Decision Tree Accuracy vs Max Depth')
+    plt.xlabel('Max Depth')
+    plt.ylabel('Accuracy')
+    plt.grid(True)
+    plt.savefig('dt_accuracy_line_chart.png')
+    plt.close()
+    print("Saved dt_accuracy_line_chart.png")
+    
     # Plot Decision Tree Structure
     plt.figure(figsize=(25, 12))
     plot_tree(dt, feature_names=feature_names, class_names=le.classes_, filled=True, rounded=True, fontsize=10)
@@ -161,6 +180,25 @@ def train_evaluate_models(X, y, le, feature_names):
     print("\nConfusion Matrix:")
     print(confusion_matrix(y_test, y_pred_rf))
     results['Random Forest'] = acc_rf
+    
+    # --- Random Forest Analysis: Accuracy vs N Estimators ---
+    print("\nRunning Random Forest Estimator Analysis...")
+    rf_estimators = range(10, 310, 20)
+    rf_accuracies = []
+    for n in rf_estimators:
+        rf_temp = RandomForestClassifier(n_estimators=n, random_state=42)
+        rf_temp.fit(X_train, y_train)
+        rf_accuracies.append(accuracy_score(y_test, rf_temp.predict(X_test)))
+        
+    plt.figure(figsize=(10, 6))
+    plt.plot(rf_estimators, rf_accuracies, marker='o', linestyle='-', color='blue')
+    plt.title('Random Forest Accuracy vs Number of Estimators')
+    plt.xlabel('Number of Estimators')
+    plt.ylabel('Accuracy')
+    plt.grid(True)
+    plt.savefig('rf_accuracy_line_chart.png')
+    plt.close()
+    print("Saved rf_accuracy_line_chart.png")
     
     # 4. XGBoost
     print("\n" + "="*40)
@@ -199,6 +237,54 @@ def train_evaluate_models(X, y, le, feature_names):
     plt.savefig('model_comparison.png')
     plt.close()
     print("Saved model_comparison.png")
+    
+
+
+    # --- Comparison Plot: Actual vs Predicted Class Counts ---
+    print("\nGenerating Actual vs Predicted Comparison Graph...")
+    
+    # Collect all predictions
+    predictions = {
+        'Actual': y_test,
+        'Logistic Regression': y_pred_lr,
+        'Decision Tree': y_pred_dt,
+        'Random Forest': y_pred_rf,
+        'XGBoost': y_pred_xgb,
+        'MLP (Neural Net)': y_pred_mlp
+    }
+    
+    # Prepare data for plotting
+    plot_data = []
+    for model_name, preds in predictions.items():
+        # Decode labels back to original string categories if needed, 
+        # but here we can just use the integer codes or map them back.
+        # Let's map them back to class names for the plot
+        pred_labels = le.inverse_transform(preds)
+        
+        # Count occurrences of each class
+        counts = pd.Series(pred_labels).value_counts()
+        
+        for class_label in le.classes_:
+            count = counts.get(class_label, 0)
+            plot_data.append({
+                'Model': model_name,
+                'Situation': class_label,
+                'Count': count
+            })
+            
+    df_plot = pd.DataFrame(plot_data)
+    
+    # Plotting
+    plt.figure(figsize=(14, 8))
+    sns.barplot(x='Situation', y='Count', hue='Model', data=df_plot, palette='viridis')
+    plt.title('Comparison of Actual vs Predicted Class Distribution Across Models')
+    plt.xlabel('Groundwater Situation')
+    plt.ylabel('Number of Test Instances')
+    plt.legend(title='Model', bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.tight_layout()
+    plt.savefig('actual_vs_predicted_comparison.png')
+    plt.close()
+    print("Saved actual_vs_predicted_comparison.png")
     
     return results
 
