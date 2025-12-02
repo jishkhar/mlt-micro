@@ -1,0 +1,72 @@
+# Project Analysis: Groundwater Level Prediction & Classification
+
+## 1. Project Overview
+This project aims to analyze, predict, and classify groundwater levels in India based on environmental factors such as Rainfall, Temperature, pH, and Dissolved Oxygen. It employs a variety of machine learning techniques ranging from simple regression to advanced ensemble methods and time series forecasting.
+
+## 2. File Structure & Components
+
+### A. Core Application
+- **`app.py`**: A Streamlit web application that serves as the user interface.
+    - **Functionality**: Allows users to input State, Season, and environmental factors to predict groundwater levels.
+    - **Logic**: Uses a pre-trained simple Random Forest model (`simple_rf_model.pkl`). It includes a helper function `get_estimated_weather` to provide default rainfall and temperature values based on the selected Indian State and Season.
+    - **Visualization**: Displays prediction results, categorizes the water level (Safe/Semi-Critical/Critical), and shows input summaries.
+
+- **`train_simple_model.py`**: A script to train the baseline model used by the app.
+    - **Model**: Random Forest Regressor (`n_estimators=100`).
+    - **Features**: `Rainfall_mm`, `Temperature_C`, `pH`, `Dissolved_Oxygen_mg_L`.
+    - **Output**: Saves the trained model to `simple_rf_model.pkl`.
+
+### B. Advanced Regression Analysis
+- **`groundwater_analysis.py`**: The main script for high-performance regression modeling.
+    - **Feature Engineering**: Extensive creation of temporal features (lags, rolling means/stds, exponential moving averages), cyclical date encoding (sin/cos for month/day), and interaction terms.
+    - **Models**: Implements and compares:
+        - **Stacking Ensemble**: Combines XGBoost, LightGBM, CatBoost, GradientBoosting, and RandomForest using Ridge Regression as a meta-learner.
+        - **Voting Ensemble**: Averages predictions from XGBoost, LightGBM, and CatBoost.
+        - **Individual Models**: XGBoost, LightGBM, CatBoost.
+    - **Evaluation**: Uses RMSE, MAE, R², and MAPE metrics.
+    - **Visualization**: Generates plots for Time Series Comparison, Residuals, and Actual vs. Predicted values.
+
+### C. Classification Analysis
+- **`classification_analysis.py`**: Focuses on categorizing groundwater levels into risk zones.
+    - **Target Creation**: Converts continuous `Water_Level_m` into categories ('SAFE', 'SEMI-CRITICAL', 'CRITICAL') based on quantiles (33rd and 66th percentiles).
+    - **Models**: Logistic Regression, Decision Tree, Random Forest, XGBoost, and MLP (Neural Network).
+    - **Analysis**: Includes depth analysis for Decision Trees and estimator analysis for Random Forests.
+    - **Outputs**: Confusion matrices, classification reports, and feature importance plots.
+
+- **`ensemble_analysis.py`**: Extends classification with ensemble techniques.
+    - **Methods**:
+        - **Soft Voting**: Average of probabilities.
+        - **Weighted Voting**: Weighted average (e.g., RF=2, XGB=1, MLP=1).
+        - **Hard Voting**: Majority class rule.
+        - **Stacking Classifier**: Uses Logistic Regression as a final estimator.
+    - **Goal**: To improve classification accuracy by combining the strengths of Random Forest, XGBoost, and MLP.
+
+### D. Time Series Forecasting
+- **`prophet_analysis.py`**: Uses Facebook Prophet for time-series specific forecasting.
+    - **Approach**: Models `Water_Level_m` as a time series (`ds`, `y`) with `Rainfall_mm` as an additional regressor.
+    - **Seasonality**: Captures daily and yearly seasonality.
+
+### E. Utilities
+- **`analyze_split.py`**: A utility script to visualize the distribution of data between training and testing sets to ensure a representative split.
+- **`requirements.txt`**: Lists dependencies: `pandas`, `numpy`, `matplotlib`, `seaborn`, `scikit-learn`, `xgboost`, `lightgbm`, `catboost`, `prophet`.
+
+## 3. Data Pipeline
+1.  **Ingestion**: Data is loaded from `DWLR_Dataset_2023.csv`.
+2.  **Preprocessing**:
+    -   Date conversion and sorting.
+    -   Handling missing values (dropping NaNs).
+    -   Feature scaling (StandardScaler) for classification and neural networks.
+3.  **Feature Engineering**:
+    -   **Regression**: Adds lag features (past values), rolling statistics (trends), and cyclical time features to capture seasonality.
+    -   **Classification**: Derives the 'Situation' target variable from water level depth.
+4.  **Splitting**:
+    -   **Time-based split** (80/20) is used for regression to respect temporal order.
+    -   **Random split** is used for classification experiments.
+
+## 4. Key Workings & Logic
+-   **Hybrid Approach**: The project tackles the problem from three angles:
+    1.  **Point Prediction**: "What is the exact water level?" (Regression)
+    2.  **Risk Assessment**: "Is the level Critical?" (Classification)
+    3.  **Future Trend**: "What will happen over time?" (Time Series/Prophet)
+-   **Ensembling**: A strong emphasis is placed on ensemble methods (Stacking, Voting) to boost performance over individual models, leveraging the diversity of tree-based (XGB, RF, CatBoost) and linear/neural models.
+-   **User-Centric Design**: The `app.py` bridges the gap between complex models and end-users by providing intelligent defaults (weather estimation) so users don't need to know exact meteorological data to get a prediction.
