@@ -86,6 +86,13 @@ def create_advanced_features(df):
     
     # Drop rows with NaN values
     df = df.dropna()
+
+    # One-hot encode Location if present
+    if 'Location' in df.columns:
+        df = pd.get_dummies(df, columns=['Location'], prefix='Loc', drop_first=False)
+        # Ensure boolean columns are converted to int/float for models
+        loc_cols = [c for c in df.columns if c.startswith('Loc_')]
+        df[loc_cols] = df[loc_cols].astype(int)
     
     return df
 

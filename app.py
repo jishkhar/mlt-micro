@@ -3,15 +3,17 @@ import pandas as pd
 import joblib
 import numpy as np
 
-# Load the trained model
+# Load the trained model and columns
 @st.cache_resource
-def load_model():
+def load_model_resources():
     try:
-        return joblib.load('simple_rf_model.pkl')
+        model = joblib.load('simple_rf_model.pkl')
+        model_columns = joblib.load('model_columns.pkl')
+        return model, model_columns
     except FileNotFoundError:
-        return None
+        return None, None
 
-model = load_model()
+model, model_columns = load_model_resources()
 
 def get_estimated_weather(state, season):
     """
@@ -127,13 +129,20 @@ else:
 
     # Prediction
     if st.button("Predict Groundwater Level"):
-        # Create input dataframe
-        input_data = pd.DataFrame({
-            'Rainfall_mm': [rainfall],
-            'Temperature_C': [temperature],
-            'pH': [ph],
-            'Dissolved_Oxygen_mg_L': [do]
-        })
+        # Create input dataframe with all columns initialized to 0
+        input_data = pd.DataFrame(columns=model_columns)
+        input_data.loc[0] = 0
+        
+        # Set basic features
+        input_data['Rainfall_mm'] = rainfall
+        input_data['Temperature_C'] = temperature
+        input_data['pH'] = ph
+        input_data['Dissolved_Oxygen_mg_L'] = do
+        
+        # Set Location feature
+        loc_col = f'Location_{selected_state}'
+        if loc_col in input_data.columns:
+            input_data[loc_col] = 1
 
         prediction = model.predict(input_data)[0]
 
@@ -174,6 +183,89 @@ else:
             st.markdown(f"Status: **:{color}[{status}]**")
             st.write(f"The groundwater level is considered {status.lower()}.")
 
+        # --- Textual Analysis ---
+        st.markdown("---")
+        st.subheader("📝 Analysis & Insights")
+        
+        analysis_text = ""
+        
+        # 1. Level Interpretation
+        if prediction < 5:
+            analysis_text += f"**Good News:** The predicted groundwater level of **{prediction:.2f} m** is within the safe range (< 5 m). This indicates healthy groundwater reserves in **{selected_state}**."
+        elif prediction < 10:
+            analysis_text += f"**Caution:** The level of **{prediction:.2f} m** is in the semi-critical range. While not immediately alarming, sustainable water management practices are recommended."
+        else:
+            analysis_text += f"**Critical Alert:** A groundwater level of **{prediction:.2f} m** is considered critical (> 10 m). This suggests significant depletion, likely due to high extraction or low recharge in this region."
+
+        # 2. Seasonal Context
+        if "Monsoon" in selected_season:
+            analysis_text += f"\n\n**Seasonal Impact:** During the **{selected_season}**, groundwater levels typically recover due to rainfall recharge. "
+            if prediction < 5:
+                analysis_text += "The current prediction aligns with this expectation, showing good recharge."
+            else:
+                analysis_text += "However, despite the season, levels remain concerning, indicating that recharge might be insufficient to offset extraction."
+        elif "Summer" in selected_season or "Pre-Monsoon" in selected_season:
+             analysis_text += f"\n\n**Seasonal Impact:** In the **{selected_season}**, water levels naturally drop due to higher evaporation and usage. "
+             if prediction > 10:
+                 analysis_text += "The deep levels observed are typical for arid regions or areas with heavy agricultural usage during this time."
+
+        # 3. State Context (General knowledge injection)
+        arid_states = ['Rajasthan', 'Gujarat', 'Punjab', 'Haryana']
+        high_rainfall_states = ['Assam', 'Meghalaya', 'Kerala', 'Goa']
+        
+        if selected_state in arid_states:
+             analysis_text += f"\n\n**Regional Context:** **{selected_state}** is known to have lower groundwater levels due to its arid/semi-arid climate and intensive agriculture. Conservation is key here."
+        elif selected_state in high_rainfall_states:
+             analysis_text += f"\n\n**Regional Context:** **{selected_state}** generally receives high rainfall. "
+             if prediction > 5:
+                 analysis_text += "Seeing lower levels here might indicate local issues like rapid urbanization or delayed monsoons."
+        
+        st.info(analysis_text)
+
+        # --- Crop Recommendations ---
+        st.markdown("---")
+        st.subheader("🌾 Farmer's Corner: Crop Recommendations")
+        
+        st.markdown(f"Based on the predicted water level of **{prediction:.2f} m** and the **{selected_season}** season, here are the recommended crops:")
+        
+        crops = []
+        advice = ""
+        
+        # Logic for crop recommendation
+        if prediction < 5:
+            # Shallow water - Good for water-intensive crops
+            if "Monsoon" in selected_season:
+                crops = ["Rice (Paddy)", "Sugarcane", "Jute", "Leafy Vegetables"]
+                advice = "Water availability is excellent. You can safely grow water-intensive crops."
+            else:
+                crops = ["Vegetables", "Flowers", "Medicinal Plants", "Fodder Crops"]
+                advice = "Groundwater is accessible. Suitable for high-value short-duration crops."
+                
+        elif prediction < 10:
+            # Moderate water - Standard crops
+            if "Winter" in selected_season:
+                crops = ["Wheat", "Mustard", "Chickpea", "Potato"]
+            else:
+                crops = ["Maize", "Cotton", "Pulses (Dal)", "Soybean", "Groundnut"]
+            advice = "Water levels are moderate. Prefer crops that require standard irrigation but avoid water-guzzling crops like Paddy if possible."
+            
+        else:
+            # Deep water - Drought resistant crops
+            crops = ["Millets (Bajra, Jowar, Ragi)", "Barley", "Guar", "Castor", "Moth Bean"]
+            advice = "⚠️ **Critical Water Level:** Strictly adopt drip irrigation. Grow drought-resistant and hardy crops only. Avoid flood irrigation."
+        
+        # Display recommendations
+        col_crop1, col_crop2 = st.columns([1, 2])
+        
+        with col_crop1:
+            st.success("**Recommended Crops:**")
+            for crop in crops:
+                st.markdown(f"- {crop}")
+                
+        with col_crop2:
+            st.warning("**Advisory:**")
+            st.write(advice)
+
         # Visualization of input vs "Normal"
         st.markdown("### Input Summary")
         st.write(f"**State:** {selected_state}")
@@ -186,3 +278,62 @@ else:
         })
         st.bar_chart(chart_data.set_index('Factor'))
 
+        # --- Historical Comparison Section ---
+        st.markdown("---")
+        st.header("📊 Historical Comparison")
+        
+        @st.cache_data
+        def load_historical_data():
+            try:
+                df = pd.read_csv('DWLR_Dataset_2023.csv')
+                return df
+            except FileNotFoundError:
+                return None
+
+        hist_df = load_historical_data()
+
+        if hist_df is not None:
+            import matplotlib.pyplot as plt
+            import seaborn as sns
+
+            st.info("Comparing your prediction with the entire historical dataset (2023).")
+
+            # 1. Distribution of Water Levels
+            st.subheader("1. Water Level Distribution")
+            fig_dist, ax_dist = plt.subplots(figsize=(10, 4))
+            sns.histplot(hist_df['Water_Level_m'], kde=True, color='skyblue', ax=ax_dist)
+            ax_dist.axvline(prediction, color='red', linestyle='--', linewidth=2, label=f'Your Prediction: {prediction:.2f}m')
+            ax_dist.set_title("Historical Groundwater Levels")
+            ax_dist.set_xlabel("Water Level (m)")
+            ax_dist.legend()
+            st.pyplot(fig_dist)
+
+            # 2. Scatter Plots (Rainfall & Temperature)
+            st.subheader("2. Environmental Factors Comparison")
+            
+            col_chart1, col_chart2 = st.columns(2)
+
+            with col_chart1:
+                st.markdown("**Rainfall vs. Water Level**")
+                fig_rain, ax_rain = plt.subplots(figsize=(6, 5))
+                sns.scatterplot(data=hist_df, x='Rainfall_mm', y='Water_Level_m', alpha=0.3, color='gray', ax=ax_rain)
+                # Highlight current prediction
+                ax_rain.scatter([rainfall], [prediction], color='red', s=100, zorder=5, label='You')
+                ax_rain.set_xlabel("Rainfall (mm)")
+                ax_rain.set_ylabel("Water Level (m)")
+                ax_rain.legend()
+                st.pyplot(fig_rain)
+
+            with col_chart2:
+                st.markdown("**Temperature vs. Water Level**")
+                fig_temp, ax_temp = plt.subplots(figsize=(6, 5))
+                sns.scatterplot(data=hist_df, x='Temperature_C', y='Water_Level_m', alpha=0.3, color='orange', ax=ax_temp)
+                # Highlight current prediction
+                ax_temp.scatter([temperature], [prediction], color='red', s=100, zorder=5, label='You')
+                ax_temp.set_xlabel("Temperature (°C)")
+                ax_temp.set_ylabel("Water Level (m)")
+                ax_temp.legend()
+                st.pyplot(fig_temp)
+                
+        else:
+            st.warning("Historical dataset 'DWLR_Dataset_2023.csv' not found. Cannot display comparison charts.")

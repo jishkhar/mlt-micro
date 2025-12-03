@@ -14,16 +14,26 @@ def train_model():
 
     # Select features and target
     # We are using a simplified set of features available from user input (indirectly)
-    features = ['Rainfall_mm', 'Temperature_C', 'pH', 'Dissolved_Oxygen_mg_L']
+    # Select features and target
+    # We are using a simplified set of features available from user input (indirectly)
+    # Location will be handled via one-hot encoding
+    base_features = ['Rainfall_mm', 'Temperature_C', 'pH', 'Dissolved_Oxygen_mg_L']
     target = 'Water_Level_m'
-
-    print(f"Features: {features}")
+    
+    # One-hot encode Location
+    if 'Location' in df.columns:
+        df = pd.get_dummies(df, columns=['Location'], prefix='Location')
+    
+    # Get all feature columns (base + encoded location)
+    feature_columns = [col for col in df.columns if col in base_features or col.startswith('Location_')]
+    
+    print(f"Features: {len(feature_columns)} columns")
     print(f"Target: {target}")
 
     # Drop missing values
-    df_clean = df.dropna(subset=features + [target])
+    df_clean = df.dropna(subset=feature_columns + [target])
     
-    X = df_clean[features]
+    X = df_clean[feature_columns]
     y = df_clean[target]
 
     # Split data
@@ -43,10 +53,14 @@ def train_model():
     print(f"MSE: {mse:.4f}")
     print(f"R2 Score: {r2:.4f}")
 
-    # Save model
+    # Save model and feature columns
     model_filename = 'simple_rf_model.pkl'
+    columns_filename = 'model_columns.pkl'
+    
     joblib.dump(rf, model_filename)
+    joblib.dump(feature_columns, columns_filename)
     print(f"Model saved to {model_filename}")
+    print(f"Feature columns saved to {columns_filename}")
 
 if __name__ == "__main__":
     train_model()
